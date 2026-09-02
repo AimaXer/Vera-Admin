@@ -351,10 +351,18 @@ p {
   border-bottom: none;
 }
 
+.table th:last-child,
+.table td:last-child {
+  width: 1%;
+  white-space: nowrap;
+  padding-left: 8px;
+}
+
 .row-actions {
-  display: flex;
+  display: inline-flex;
   gap: 8px;
   justify-content: flex-end;
+  align-items: center;
 }
 
 .icon-btn {
