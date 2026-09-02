@@ -4,6 +4,10 @@ import type {
   AdminPublic,
   AdminSessionResponse,
   AdminUserRecord,
+  TelemetryCrashesResponse,
+  TelemetryEventsResponse,
+  TelemetryStats,
+  UserTelemetrySummary,
 } from '../types';
 
 export function adminLogin(login: string, password: string): Promise<AdminLoginResponse> {
@@ -95,4 +99,53 @@ export function updateOrgUser(
 
 export function deleteOrgUser(id: string): Promise<{ok: boolean}> {
   return apiRequest('DELETE', `/admin/users/${encodeURIComponent(id)}`);
+}
+
+export type TelemetryQuery = {
+  from?: string;
+  to?: string;
+  level?: string;
+  source?: string;
+  userId?: string;
+  q?: string;
+  cursor?: string;
+  limit?: number;
+};
+
+export function fetchTelemetryStats(from?: string, to?: string): Promise<TelemetryStats> {
+  const params = new URLSearchParams();
+  if (from) {
+    params.set('from', from);
+  }
+  if (to) {
+    params.set('to', to);
+  }
+  const qs = params.toString();
+  return apiRequest('GET', `/admin/telemetry/stats${qs ? `?${qs}` : ''}`);
+}
+
+export function fetchTelemetryEvents(query: TelemetryQuery = {}): Promise<TelemetryEventsResponse> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== '') {
+      params.set(key, String(value));
+    }
+  }
+  const qs = params.toString();
+  return apiRequest('GET', `/admin/telemetry/events${qs ? `?${qs}` : ''}`);
+}
+
+export function fetchTelemetryCrashes(query: TelemetryQuery = {}): Promise<TelemetryCrashesResponse> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== '') {
+      params.set(key, String(value));
+    }
+  }
+  const qs = params.toString();
+  return apiRequest('GET', `/admin/telemetry/crashes${qs ? `?${qs}` : ''}`);
+}
+
+export function fetchUserTelemetrySummary(userId: string): Promise<UserTelemetrySummary> {
+  return apiRequest('GET', `/admin/telemetry/users/${encodeURIComponent(userId)}/summary`);
 }

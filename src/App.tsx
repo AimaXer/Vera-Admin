@@ -16,6 +16,12 @@ export default function App(): React.JSX.Element {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<AdminTab>('admins');
+  const [consoleUserId, setConsoleUserId] = useState<string | undefined>();
+
+  function onTab(next: AdminTab, userId?: string): void {
+    setTab(next);
+    setConsoleUserId(userId);
+  }
 
   useEffect(() => {
     const onPop = () => setPath(currentPath());
@@ -74,7 +80,8 @@ export default function App(): React.JSX.Element {
     <Shell
       session={session}
       tab={tab}
-      onTab={setTab}
+      consoleUserId={consoleUserId}
+      onTab={onTab}
       onLogout={logout}
     />
   );

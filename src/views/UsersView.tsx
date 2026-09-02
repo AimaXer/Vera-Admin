@@ -1,5 +1,5 @@
 import {FormEvent, useEffect, useState} from 'react';
-import {Pencil, Plus, Trash2} from 'lucide-react';
+import {Activity, Pencil, Plus, ScrollText, Trash2} from 'lucide-react';
 import {createOrgUser, deleteOrgUser, listOrgUsers, updateOrgUser} from '../api/admin';
 import {errorMessage} from '../api/http';
 import type {AdminUserRecord} from '../types';
@@ -14,7 +14,12 @@ type Draft = {
 
 const emptyDraft: Draft = {username: '', displayName: '', email: '', password: ''};
 
-export function UsersView(): React.JSX.Element {
+type Props = {
+  onOpenLogs?: (userId: string) => void;
+  onOpenCrashes?: (userId: string) => void;
+};
+
+export function UsersView({onOpenLogs, onOpenCrashes}: Props): React.JSX.Element {
   const [rows, setRows] = useState<AdminUserRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -119,6 +124,7 @@ export function UsersView(): React.JSX.Element {
                 <th>Login</th>
                 <th>E-mail</th>
                 <th>Status</th>
+                <th>Błędy (7d)</th>
                 <th />
               </tr>
             </thead>
@@ -138,7 +144,38 @@ export function UsersView(): React.JSX.Element {
                     )}
                   </td>
                   <td>
+                    {(row.errors7d ?? 0) > 0 ? (
+                      <span className="badge danger">{row.errors7d}</span>
+                    ) : (
+                      <span className="badge muted">0</span>
+                    )}
+                    {row.lastPlatform ? (
+                      <div className="hint inline-hint">
+                        {row.lastPlatform}
+                        {row.lastAppVersion ? ` · ${row.lastAppVersion}` : ''}
+                      </div>
+                    ) : null}
+                  </td>
+                  <td>
                     <div className="row-actions">
+                      {onOpenLogs ? (
+                        <button
+                          className="icon-btn"
+                          type="button"
+                          title="Logi użytkownika"
+                          onClick={() => onOpenLogs(row.id)}>
+                          <ScrollText size={16} />
+                        </button>
+                      ) : null}
+                      {onOpenCrashes && row.lastCrash ? (
+                        <button
+                          className="icon-btn"
+                          type="button"
+                          title="Crashe użytkownika"
+                          onClick={() => onOpenCrashes(row.id)}>
+                          <Activity size={16} />
+                        </button>
+                      ) : null}
                       <button className="icon-btn" type="button" title="Edytuj" onClick={() => openEdit(row)}>
                         <Pencil size={16} />
                       </button>
