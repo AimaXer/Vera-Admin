@@ -1,14 +1,15 @@
 import {AlertTriangle, BarChart3, ClipboardList, LogOut, Shield, Terminal, Users} from 'lucide-react';
-import {useEffect} from 'react';
+import {lazy, Suspense, useEffect} from 'react';
 import {isSuperadmin, type Session} from '../session';
-import {AdminsView} from './AdminsView';
-import {AuditView} from './AuditView';
-import {ConsoleView} from './ConsoleView';
-import {CrashesView} from './CrashesView';
-import {StatsView} from './StatsView';
-import {UsersView} from './UsersView';
 
 export type AdminTab = 'admins' | 'users' | 'stats' | 'console' | 'crashes' | 'audit';
+
+const AdminsView = lazy(() => import('./AdminsView').then(m => ({default: m.AdminsView})));
+const UsersView = lazy(() => import('./UsersView').then(m => ({default: m.UsersView})));
+const StatsView = lazy(() => import('./StatsView').then(m => ({default: m.StatsView})));
+const ConsoleView = lazy(() => import('./ConsoleView').then(m => ({default: m.ConsoleView})));
+const CrashesView = lazy(() => import('./CrashesView').then(m => ({default: m.CrashesView})));
+const AuditView = lazy(() => import('./AuditView').then(m => ({default: m.AuditView})));
 
 type Props = {
   session: Session;
@@ -44,6 +45,10 @@ const TAB_META: Record<AdminTab, {title: string; subtitle: string}> = {
     subtitle: 'Historia działań w panelu administratora.',
   },
 };
+
+function TabFallback(): React.JSX.Element {
+  return <div className="tab-fallback">Ładowanie…</div>;
+}
 
 export function Shell({session, tab, consoleUserId, onTab, onLogout}: Props): React.JSX.Element {
   const canManageAdmins = isSuperadmin(session.admin);
@@ -125,19 +130,21 @@ export function Shell({session, tab, consoleUserId, onTab, onLogout}: Props): Re
           <p>{meta.subtitle}</p>
         </header>
         <div className="main-body">
-          {tab === 'admins' && canManageAdmins ? <AdminsView session={session} /> : null}
-          {tab === 'users' ? (
-            <UsersView
-              canDestroyEncryption={canManageAdmins}
-              canDeleteUser={canManageAdmins}
-              onOpenLogs={userId => onTab('console', userId)}
-              onOpenCrashes={userId => onTab('crashes', userId)}
-            />
-          ) : null}
-          {tab === 'stats' ? <StatsView /> : null}
-          {tab === 'console' ? <ConsoleView initialUserId={consoleUserId} /> : null}
-          {tab === 'crashes' ? <CrashesView initialUserId={consoleUserId} /> : null}
-          {tab === 'audit' ? <AuditView /> : null}
+          <Suspense fallback={<TabFallback />}>
+            {tab === 'admins' && canManageAdmins ? <AdminsView session={session} /> : null}
+            {tab === 'users' ? (
+              <UsersView
+                canDestroyEncryption={canManageAdmins}
+                canDeleteUser={canManageAdmins}
+                onOpenLogs={userId => onTab('console', userId)}
+                onOpenCrashes={userId => onTab('crashes', userId)}
+              />
+            ) : null}
+            {tab === 'stats' ? <StatsView /> : null}
+            {tab === 'console' ? <ConsoleView initialUserId={consoleUserId} /> : null}
+            {tab === 'crashes' ? <CrashesView initialUserId={consoleUserId} /> : null}
+            {tab === 'audit' ? <AuditView /> : null}
+          </Suspense>
         </div>
       </main>
     </div>
