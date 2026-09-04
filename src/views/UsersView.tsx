@@ -1,6 +1,12 @@
 import {FormEvent, useEffect, useState} from 'react';
-import {Activity, Pencil, Plus, ScrollText, Trash2} from 'lucide-react';
-import {createOrgUser, deleteOrgUser, listOrgUsers, updateOrgUser} from '../api/admin';
+import {Activity, LogOut, Pencil, Plus, ScrollText, Trash2} from 'lucide-react';
+import {
+  createOrgUser,
+  deleteOrgUser,
+  forceLogoutOrgUser,
+  listOrgUsers,
+  updateOrgUser,
+} from '../api/admin';
 import {errorMessage} from '../api/http';
 import type {AdminUserRecord} from '../types';
 import {Modal} from '../ui/Modal';
@@ -26,6 +32,7 @@ export function UsersView({onOpenLogs, onOpenCrashes}: Props): React.JSX.Element
   const [editing, setEditing] = useState<AdminUserRecord | 'new' | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [pendingDelete, setPendingDelete] = useState<AdminUserRecord | null>(null);
+  const [pendingLogout, setPendingLogout] = useState<AdminUserRecord | null>(null);
 
   async function reload(): Promise<void> {
     setRows(await listOrgUsers());
@@ -98,6 +105,23 @@ export function UsersView({onOpenLogs, onOpenCrashes}: Props): React.JSX.Element
     }
   }
 
+  async function onForceLogout(): Promise<void> {
+    if (!pendingLogout) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await forceLogoutOrgUser(pendingLogout.id);
+      setPendingLogout(null);
+      await reload();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <div className="card">
@@ -109,7 +133,7 @@ export function UsersView({onOpenLogs, onOpenCrashes}: Props): React.JSX.Element
             </span>
           </button>
         </div>
-        {error && !editing && !pendingDelete ? (
+        {error && !editing && !pendingDelete && !pendingLogout ? (
           <p className="error-text" style={{margin: '12px 18px 0'}}>
             {error}
           </p>
@@ -176,6 +200,13 @@ export function UsersView({onOpenLogs, onOpenCrashes}: Props): React.JSX.Element
                           <Activity size={16} />
                         </button>
                       ) : null}
+                      <button
+                        className="icon-btn"
+                        type="button"
+                        title="Wyloguj wszędzie"
+                        onClick={() => setPendingLogout(row)}>
+                        <LogOut size={16} />
+                      </button>
                       <button className="icon-btn" type="button" title="Edytuj" onClick={() => openEdit(row)}>
                         <Pencil size={16} />
                       </button>
@@ -257,10 +288,33 @@ export function UsersView({onOpenLogs, onOpenCrashes}: Props): React.JSX.Element
         </Modal>
       ) : null}
 
+      {pendingLogout ? (
+        <Modal title="Wylogować wszędzie?" onClose={() => setPendingLogout(null)}>
+          <p className="hint">
+            Konto {pendingLogout.username} zostanie wylogowane na wszystkich urządzeniach
+            (mobile, web). Sesje i tokeny push zostaną unieważnione.
+          </p>
+          {error ? <p className="error-text">{error}</p> : null}
+          <div className="modal-actions">
+            <button className="btn-secondary" type="button" onClick={() => setPendingLogout(null)}>
+              Anuluj
+            </button>
+            <button
+              className="btn-primary"
+              type="button"
+              disabled={busy}
+              onClick={() => void onForceLogout()}>
+              Wyloguj wszędzie
+            </button>
+          </div>
+        </Modal>
+      ) : null}
+
       {pendingDelete ? (
         <Modal title="Usunąć użytkownika?" onClose={() => setPendingDelete(null)}>
           <p className="hint">
-            Konto {pendingDelete.username} i powiązane czaty zostaną usunięte z bazy.
+            Konto {pendingDelete.username} zostanie wylogowane na wszystkich platformach, a potem
+            usunięte wraz z powiązanymi czatami.
           </p>
           {error ? <p className="error-text">{error}</p> : null}
           <div className="modal-actions">

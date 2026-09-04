@@ -101,6 +101,14 @@ export function deleteOrgUser(id: string): Promise<{ok: boolean}> {
   return apiRequest('DELETE', `/admin/users/${encodeURIComponent(id)}`);
 }
 
+export function forceLogoutOrgUser(id: string): Promise<{
+  ok: boolean;
+  tokenVersion?: number;
+  socketsClosed?: number;
+}> {
+  return apiRequest('POST', `/admin/users/${encodeURIComponent(id)}/logout`);
+}
+
 export type TelemetryQuery = {
   from?: string;
   to?: string;
