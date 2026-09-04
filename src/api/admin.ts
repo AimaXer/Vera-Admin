@@ -92,6 +92,8 @@ export function updateOrgUser(
     password?: string;
     displayName?: string;
     email?: string | null;
+    identityBackup?: {ciphertext: string; nonce: string};
+    destroyEncryption?: boolean;
   },
 ): Promise<AdminUserRecord> {
   return apiRequest('PUT', `/admin/users/${encodeURIComponent(id)}`, body);

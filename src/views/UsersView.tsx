@@ -16,9 +16,16 @@ type Draft = {
   displayName: string;
   email: string;
   password: string;
+  destroyEncryption: boolean;
 };
 
-const emptyDraft: Draft = {username: '', displayName: '', email: '', password: ''};
+const emptyDraft: Draft = {
+  username: '',
+  displayName: '',
+  email: '',
+  password: '',
+  destroyEncryption: false,
+};
 
 type Props = {
   onOpenLogs?: (userId: string) => void;
@@ -54,6 +61,7 @@ export function UsersView({onOpenLogs, onOpenCrashes}: Props): React.JSX.Element
       displayName: row.displayName,
       email: row.email ?? '',
       password: '',
+      destroyEncryption: false,
     });
     setEditing(row);
     setError(null);
@@ -72,11 +80,26 @@ export function UsersView({onOpenLogs, onOpenCrashes}: Props): React.JSX.Element
           email: draft.email || null,
         });
       } else if (editing) {
+        const passwordChanging = Boolean(draft.password);
+        const usernameChanging = draft.username !== editing.username;
+        if ((passwordChanging || usernameChanging) && draft.destroyEncryption) {
+          const ok = window.confirm(
+            'To trwale usunie backup kluczy E2E. Historia wiadomości może stać się nieodszyfrowalna na wszystkich urządzeniach. Kontynuować?',
+          );
+          if (!ok) {
+            setBusy(false);
+            return;
+          }
+        }
         await updateOrgUser(editing.id, {
           username: draft.username,
           displayName: draft.displayName,
           email: draft.email || null,
           password: draft.password || undefined,
+          destroyEncryption:
+            (passwordChanging || usernameChanging) && draft.destroyEncryption
+              ? true
+              : undefined,
         });
       }
       setEditing(null);
@@ -274,7 +297,31 @@ export function UsersView({onOpenLogs, onOpenCrashes}: Props): React.JSX.Element
                 value={draft.password}
                 onChange={event => setDraft({...draft, password: event.target.value})}
               />
+              {editing !== 'new' ? (
+                <p className="hint" style={{marginTop: 8}}>
+                  Zmiana hasła lub loginu wymaga re-seal backupu E2E. Użytkownik powinien zmienić
+                  hasło w aplikacji (Ustawienia). Destrukcyjny reset poniżej czyści backup kluczy.
+                </p>
+              ) : null}
             </div>
+            {editing !== 'new' ? (
+              <label
+                className="field"
+                style={{display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer'}}>
+                <input
+                  type="checkbox"
+                  checked={draft.destroyEncryption}
+                  onChange={event =>
+                    setDraft({...draft, destroyEncryption: event.target.checked})
+                  }
+                  style={{marginTop: 3}}
+                />
+                <span>
+                  Destrukcyjny reset E2E — usuń backup kluczy przy zmianie hasła/loginu (historia może
+                  być nieodszyfrowalna)
+                </span>
+              </label>
+            ) : null}
             {error ? <p className="error-text">{error}</p> : null}
             <div className="modal-actions">
               <button className="btn-secondary" type="button" onClick={() => setEditing(null)}>
