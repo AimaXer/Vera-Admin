@@ -12,9 +12,19 @@ export class ApiError extends Error {
   }
 }
 
-export const API_BASE_URL = (
-  import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3000'
-).replace(/\/+$/, '');
+/** Prefer same-origin /__vera_api on vanity HTTPS (avoids mixed content + dead Caddy). */
+function resolveApiBase(): string {
+  const fromEnv = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '');
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'vera-admin.pl' || host === 'www.vera-admin.pl') {
+      return `${window.location.origin}/__vera_api`;
+    }
+  }
+  return fromEnv || 'http://127.0.0.1:3000';
+}
+
+export const API_BASE_URL = resolveApiBase();
 
 let authToken: string | null = null;
 let onUnauthorized: (() => void) | null = null;
