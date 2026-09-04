@@ -294,9 +294,14 @@ export function UsersView({onOpenLogs, onOpenCrashes}: Props): React.JSX.Element
                 className="input-field"
                 type="password"
                 required={editing === 'new'}
+                minLength={editing === 'new' ? 12 : undefined}
+                autoComplete="new-password"
                 value={draft.password}
                 onChange={event => setDraft({...draft, password: event.target.value})}
               />
+              <p className="hint" style={{marginTop: 8}}>
+                Minimum 12 znaków, bez haseł z listy zakazanych (polityka serwera).
+              </p>
               {editing !== 'new' ? (
                 <p className="hint" style={{marginTop: 8}}>
                   Zmiana hasła lub loginu wymaga re-seal backupu E2E. Użytkownik powinien zmienić

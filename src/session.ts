@@ -4,6 +4,14 @@ import type {AdminPublic} from './types';
 
 const STORAGE_KEY = 'vera-admin-token';
 
+/**
+ * Operator sessions are tab-scoped: closing the browser ends the session and
+ * leaves no admin token on disk of a shared workstation.
+ */
+function store(): Storage {
+  return sessionStorage;
+}
+
 export type Session = {
   token: string;
   admin: AdminPublic;
@@ -11,14 +19,24 @@ export type Session = {
 };
 
 export function readStoredToken(): string | null {
-  return localStorage.getItem(STORAGE_KEY);
+  try {
+    return store().getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
 }
 
 export function persistToken(token: string | null): void {
-  if (token) {
-    localStorage.setItem(STORAGE_KEY, token);
-  } else {
+  try {
+    if (token) {
+      store().setItem(STORAGE_KEY, token);
+    } else {
+      store().removeItem(STORAGE_KEY);
+    }
+    // Older builds stored the operator token in localStorage.
     localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // storage disabled by policy — session stays in memory only
   }
   setAuthToken(token);
 }
