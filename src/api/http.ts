@@ -27,7 +27,7 @@ export function setAuthToken(token: string | null): void {
   }
 }
 
-/** Soft 401 prep (REL-11): register a handler that clears the session token. */
+/** REL-11: register a handler for soft 401 (clear token/session → login). */
 export function setOnUnauthorized(handler: (() => void) | null): void {
   onUnauthorized = handler;
 }

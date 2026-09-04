@@ -44,6 +44,7 @@ export default function App(): React.JSX.Element {
     setOnUnauthorized(() => {
       persistToken(null);
       setSession(null);
+      navigate('/login');
     });
     return () => setOnUnauthorized(null);
   }, []);
