@@ -1,12 +1,14 @@
-import {AlertTriangle, BarChart3, LogOut, Shield, Terminal, Users} from 'lucide-react';
-import type {Session} from '../session';
+import {AlertTriangle, BarChart3, ClipboardList, LogOut, Shield, Terminal, Users} from 'lucide-react';
+import {useEffect} from 'react';
+import {isSuperadmin, type Session} from '../session';
 import {AdminsView} from './AdminsView';
+import {AuditView} from './AuditView';
 import {ConsoleView} from './ConsoleView';
 import {CrashesView} from './CrashesView';
 import {StatsView} from './StatsView';
 import {UsersView} from './UsersView';
 
-export type AdminTab = 'admins' | 'users' | 'stats' | 'console' | 'crashes';
+export type AdminTab = 'admins' | 'users' | 'stats' | 'console' | 'crashes' | 'audit';
 
 type Props = {
   session: Session;
@@ -16,10 +18,7 @@ type Props = {
   onLogout: () => void;
 };
 
-const TAB_META: Record<
-  AdminTab,
-  {title: string; subtitle: string}
-> = {
+const TAB_META: Record<AdminTab, {title: string; subtitle: string}> = {
   admins: {
     title: 'Administratorzy',
     subtitle: 'Kto może logować się do tego panelu.',
@@ -40,10 +39,21 @@ const TAB_META: Record<
     title: 'Crashe',
     subtitle: 'Raporty awarii z breadcrumbs i stack trace.',
   },
+  audit: {
+    title: 'Audyt',
+    subtitle: 'Historia działań w panelu administratora.',
+  },
 };
 
 export function Shell({session, tab, consoleUserId, onTab, onLogout}: Props): React.JSX.Element {
+  const canManageAdmins = isSuperadmin(session.admin);
   const meta = TAB_META[tab];
+
+  useEffect(() => {
+    if (!canManageAdmins && tab === 'admins') {
+      onTab('users');
+    }
+  }, [canManageAdmins, onTab, tab]);
 
   return (
     <div className="shell">
@@ -56,13 +66,15 @@ export function Shell({session, tab, consoleUserId, onTab, onLogout}: Props): Re
           </div>
         </div>
         <nav>
-          <button
-            type="button"
-            className={`nav-btn${tab === 'admins' ? ' active' : ''}`}
-            onClick={() => onTab('admins')}>
-            <Shield size={18} />
-            Administratorzy
-          </button>
+          {canManageAdmins ? (
+            <button
+              type="button"
+              className={`nav-btn${tab === 'admins' ? ' active' : ''}`}
+              onClick={() => onTab('admins')}>
+              <Shield size={18} />
+              Administratorzy
+            </button>
+          ) : null}
           <button
             type="button"
             className={`nav-btn${tab === 'users' ? ' active' : ''}`}
@@ -91,6 +103,13 @@ export function Shell({session, tab, consoleUserId, onTab, onLogout}: Props): Re
             <AlertTriangle size={18} />
             Crashe
           </button>
+          <button
+            type="button"
+            className={`nav-btn${tab === 'audit' ? ' active' : ''}`}
+            onClick={() => onTab('audit')}>
+            <ClipboardList size={18} />
+            Audyt
+          </button>
         </nav>
         <div className="sidebar-foot">
           <div className="sidebar-user">{session.admin.email ?? session.admin.username}</div>
@@ -106,9 +125,11 @@ export function Shell({session, tab, consoleUserId, onTab, onLogout}: Props): Re
           <p>{meta.subtitle}</p>
         </header>
         <div className="main-body">
-          {tab === 'admins' ? <AdminsView session={session} /> : null}
+          {tab === 'admins' && canManageAdmins ? <AdminsView session={session} /> : null}
           {tab === 'users' ? (
             <UsersView
+              canDestroyEncryption={canManageAdmins}
+              canDeleteUser={canManageAdmins}
               onOpenLogs={userId => onTab('console', userId)}
               onOpenCrashes={userId => onTab('crashes', userId)}
             />
@@ -116,6 +137,7 @@ export function Shell({session, tab, consoleUserId, onTab, onLogout}: Props): Re
           {tab === 'stats' ? <StatsView /> : null}
           {tab === 'console' ? <ConsoleView initialUserId={consoleUserId} /> : null}
           {tab === 'crashes' ? <CrashesView initialUserId={consoleUserId} /> : null}
+          {tab === 'audit' ? <AuditView /> : null}
         </div>
       </main>
     </div>

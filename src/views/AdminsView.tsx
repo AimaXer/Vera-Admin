@@ -11,7 +11,7 @@ import {
 import {errorMessage} from '../api/http';
 import type {AdminPublic} from '../types';
 import {Modal} from '../ui/Modal';
-import type {Session} from '../session';
+import {PASSWORD_MIN_LENGTH, type Session} from '../session';
 
 type Props = {
   session: Session;
@@ -302,9 +302,14 @@ export function AdminsView({session}: Props): React.JSX.Element {
                   id="admin-password"
                   className="input-field"
                   type="password"
+                  minLength={draft.password ? PASSWORD_MIN_LENGTH : undefined}
+                  autoComplete="new-password"
                   value={draft.password}
                   onChange={event => setDraft({...draft, password: event.target.value})}
                 />
+                <p className="hint" style={{marginTop: 8}}>
+                  Minimum {PASSWORD_MIN_LENGTH} znaków, gdy ustawiasz hasło.
+                </p>
               </div>
               {error ? <p className="error-text">{error}</p> : null}
               <div className="modal-actions">

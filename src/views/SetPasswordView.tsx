@@ -1,14 +1,14 @@
 import {FormEvent, useState} from 'react';
 import {completeAdminSetup, resetAdminPassword} from '../api/admin';
 import {errorMessage} from '../api/http';
-import {navigate, queryParam} from '../session';
+import {navigate, PASSWORD_MIN_LENGTH, readUrlToken} from '../session';
 
 type Props = {
   mode: 'setup' | 'reset';
 };
 
 export function SetPasswordView({mode}: Props): React.JSX.Element {
-  const token = queryParam('token') ?? '';
+  const [token] = useState(() => readUrlToken('token') ?? '');
   const [password, setPassword] = useState('');
   const [repeat, setRepeat] = useState('');
   const [busy, setBusy] = useState(false);
@@ -27,8 +27,8 @@ export function SetPasswordView({mode}: Props): React.JSX.Element {
       setError('Hasła muszą być identyczne.');
       return;
     }
-    if (password.length < 8) {
-      setError('Hasło musi mieć co najmniej 8 znaków.');
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      setError(`Hasło musi mieć co najmniej ${PASSWORD_MIN_LENGTH} znaków.`);
       return;
     }
     setBusy(true);
@@ -73,9 +73,13 @@ export function SetPasswordView({mode}: Props): React.JSX.Element {
                 className="input-field"
                 type="password"
                 autoComplete="new-password"
+                minLength={PASSWORD_MIN_LENGTH}
                 value={password}
                 onChange={event => setPassword(event.target.value)}
               />
+              <p className="hint" style={{marginTop: 8}}>
+                Minimum {PASSWORD_MIN_LENGTH} znaków.
+              </p>
             </div>
             <div className="field">
               <label htmlFor="repeat">Powtórz hasło</label>
@@ -84,6 +88,7 @@ export function SetPasswordView({mode}: Props): React.JSX.Element {
                 className="input-field"
                 type="password"
                 autoComplete="new-password"
+                minLength={PASSWORD_MIN_LENGTH}
                 value={repeat}
                 onChange={event => setRepeat(event.target.value)}
               />

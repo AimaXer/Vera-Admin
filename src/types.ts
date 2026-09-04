@@ -1,3 +1,5 @@
+export type AdminRole = 'operator' | 'superadmin';
+
 export type AdminPublic = {
   id: string;
   username: string;
@@ -5,7 +7,24 @@ export type AdminPublic = {
   displayName: string;
   claimed: boolean;
   isBootstrap: boolean;
+  /** Panel privilege; missing on older API builds → treat as superadmin. */
+  role?: AdminRole;
   createdAt: string;
+};
+
+export type AdminAuditEntry = {
+  id: string;
+  action: string;
+  actorAdminId: string;
+  actorEmail: string | null;
+  targetType: string;
+  targetId: string | null;
+  createdAt: string;
+};
+
+export type AdminAuditResponse = {
+  entries: AdminAuditEntry[];
+  nextCursor: string | null;
 };
 
 export type AdminLoginResponse = {

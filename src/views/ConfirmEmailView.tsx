@@ -1,10 +1,11 @@
 import {useEffect, useState} from 'react';
 import {confirmAdminEmail} from '../api/admin';
 import {errorMessage} from '../api/http';
-import {navigate, queryParam} from '../session';
+import {navigate, readUrlToken} from '../session';
+
 
 export function ConfirmEmailView(): React.JSX.Element {
-  const token = queryParam('token') ?? '';
+  const [token] = useState(() => readUrlToken('token') ?? '');
   const [status, setStatus] = useState<'working' | 'ok' | 'error'>('working');
   const [detail, setDetail] = useState('');
 

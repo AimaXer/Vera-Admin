@@ -17,9 +17,19 @@ export const API_BASE_URL = (
 ).replace(/\/+$/, '');
 
 let authToken: string | null = null;
+let onUnauthorized: (() => void) | null = null;
+let unauthorizedNotified = false;
 
 export function setAuthToken(token: string | null): void {
   authToken = token;
+  if (token) {
+    unauthorizedNotified = false;
+  }
+}
+
+/** Soft 401 prep (REL-11): register a handler that clears the session token. */
+export function setOnUnauthorized(handler: (() => void) | null): void {
+  onUnauthorized = handler;
 }
 
 async function parseError(response: Response): Promise<ApiError> {
@@ -58,7 +68,23 @@ export async function apiRequest<T>(
     throw new ApiError('network', 'Brak połączenia z API', 0);
   }
   if (!response.ok) {
-    throw await parseError(response);
+    const err = await parseError(response);
+    if (
+      response.status === 401 &&
+      authToken &&
+      path !== '/admin/auth/login' &&
+      (err.code === 'unauthorized' || err.code === 'session_revoked')
+    ) {
+      if (!unauthorizedNotified) {
+        unauthorizedNotified = true;
+        try {
+          onUnauthorized?.();
+        } catch {
+          // ignore handler errors — request still fails below
+        }
+      }
+    }
+    throw err;
   }
   if (response.status === 204) {
     return undefined as T;
@@ -87,6 +113,8 @@ export function errorMessage(err: unknown): string {
         return 'Nie można usunąć ostatniego administratora.';
       case 'setup_required':
         return 'Najpierw dokończ aktywację konta e-mailem.';
+      case 'forbidden':
+        return 'Brak uprawnień do tej operacji.';
       case 'rate_limited':
         return 'Zbyt wiele prób. Spróbuj za chwilę.';
       case 'network':

@@ -1,5 +1,6 @@
 import {useEffect, useState} from 'react';
-import {navigate, persistToken, restoreSession, type Session} from './session';
+import {setOnUnauthorized} from './api/http';
+import {isSuperadmin, navigate, persistToken, restoreSession, type Session} from './session';
 import {ClaimEmailView} from './views/ClaimEmailView';
 import {ConfirmEmailView} from './views/ConfirmEmailView';
 import {ForgotView} from './views/ForgotView';
@@ -15,7 +16,7 @@ export default function App(): React.JSX.Element {
   const [path, setPath] = useState(currentPath);
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
-  const [tab, setTab] = useState<AdminTab>('admins');
+  const [tab, setTab] = useState<AdminTab>('users');
   const [consoleUserId, setConsoleUserId] = useState<string | undefined>();
 
   function onTab(next: AdminTab, userId?: string): void {
@@ -32,8 +33,19 @@ export default function App(): React.JSX.Element {
   useEffect(() => {
     void restoreSession().then(value => {
       setSession(value);
+      if (value && isSuperadmin(value.admin)) {
+        setTab('admins');
+      }
       setReady(true);
     });
+  }, []);
+
+  useEffect(() => {
+    setOnUnauthorized(() => {
+      persistToken(null);
+      setSession(null);
+    });
+    return () => setOnUnauthorized(null);
   }, []);
 
   function logout(): void {
@@ -69,7 +81,14 @@ export default function App(): React.JSX.Element {
   }
 
   if (!session) {
-    return <LoginView onLoggedIn={setSession} />;
+    return (
+      <LoginView
+        onLoggedIn={next => {
+          setSession(next);
+          setTab(isSuperadmin(next.admin) ? 'admins' : 'users');
+        }}
+      />
+    );
   }
 
   if (session.mustClaimEmail) {

@@ -1,5 +1,7 @@
 import {apiRequest} from './http';
 import type {
+  AdminAuditEntry,
+  AdminAuditResponse,
   AdminLoginResponse,
   AdminPublic,
   AdminSessionResponse,
@@ -158,4 +160,43 @@ export function fetchTelemetryCrashes(query: TelemetryQuery = {}): Promise<Telem
 
 export function fetchUserTelemetrySummary(userId: string): Promise<UserTelemetrySummary> {
   return apiRequest('GET', `/admin/telemetry/users/${encodeURIComponent(userId)}/summary`);
+}
+
+export function fetchAdminAudit(query: {
+  cursor?: string;
+  limit?: number;
+} = {}): Promise<AdminAuditResponse> {
+  const params = new URLSearchParams();
+  if (query.cursor) {
+    params.set('cursor', query.cursor);
+  }
+  if (query.limit !== undefined) {
+    params.set('limit', String(query.limit));
+  }
+  const qs = params.toString();
+  return apiRequest<
+    | AdminAuditResponse
+    | {
+        items?: Array<Record<string, unknown>>;
+        entries?: Array<Record<string, unknown>>;
+        nextCursor?: string | null;
+      }
+  >('GET', `/admin/audit${qs ? `?${qs}` : ''}`).then(raw => {
+    const rows = ('entries' in raw && raw.entries ? raw.entries : null) ??
+      ('items' in raw && raw.items ? raw.items : null) ??
+      [];
+    const entries: AdminAuditEntry[] = rows.map(row => {
+      const r = row as Record<string, unknown>;
+      return {
+        id: String(r.id ?? ''),
+        action: String(r.action ?? ''),
+        actorAdminId: String(r.actorAdminId ?? r.actor_admin_id ?? ''),
+        actorEmail: (r.actorEmail ?? r.actor_email ?? null) as string | null,
+        targetType: String(r.targetType ?? r.target_type ?? ''),
+        targetId: (r.targetId ?? r.target_id ?? null) as string | null,
+        createdAt: String(r.createdAt ?? r.created_at ?? ''),
+      };
+    });
+    return {entries, nextCursor: raw.nextCursor ?? null};
+  });
 }

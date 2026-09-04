@@ -8,6 +8,7 @@ import {
   updateOrgUser,
 } from '../api/admin';
 import {errorMessage} from '../api/http';
+import {PASSWORD_MIN_LENGTH} from '../session';
 import type {AdminUserRecord} from '../types';
 import {Modal} from '../ui/Modal';
 
@@ -28,11 +29,20 @@ const emptyDraft: Draft = {
 };
 
 type Props = {
+  /** SEC-4: superadmin only. */
+  canDestroyEncryption?: boolean;
+  /** SEC-4: superadmin only. */
+  canDeleteUser?: boolean;
   onOpenLogs?: (userId: string) => void;
   onOpenCrashes?: (userId: string) => void;
 };
 
-export function UsersView({onOpenLogs, onOpenCrashes}: Props): React.JSX.Element {
+export function UsersView({
+  canDestroyEncryption = false,
+  canDeleteUser = false,
+  onOpenLogs,
+  onOpenCrashes,
+}: Props): React.JSX.Element {
   const [rows, setRows] = useState<AdminUserRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -82,7 +92,11 @@ export function UsersView({onOpenLogs, onOpenCrashes}: Props): React.JSX.Element
       } else if (editing) {
         const passwordChanging = Boolean(draft.password);
         const usernameChanging = draft.username !== editing.username;
-        if ((passwordChanging || usernameChanging) && draft.destroyEncryption) {
+        if (
+          canDestroyEncryption &&
+          (passwordChanging || usernameChanging) &&
+          draft.destroyEncryption
+        ) {
           const ok = window.confirm(
             'To trwale usunie backup kluczy E2E. Historia wiadomości może stać się nieodszyfrowalna na wszystkich urządzeniach. Kontynuować?',
           );
@@ -97,7 +111,9 @@ export function UsersView({onOpenLogs, onOpenCrashes}: Props): React.JSX.Element
           email: draft.email || null,
           password: draft.password || undefined,
           destroyEncryption:
-            (passwordChanging || usernameChanging) && draft.destroyEncryption
+            canDestroyEncryption &&
+            (passwordChanging || usernameChanging) &&
+            draft.destroyEncryption
               ? true
               : undefined,
         });
@@ -233,13 +249,15 @@ export function UsersView({onOpenLogs, onOpenCrashes}: Props): React.JSX.Element
                       <button className="icon-btn" type="button" title="Edytuj" onClick={() => openEdit(row)}>
                         <Pencil size={16} />
                       </button>
-                      <button
-                        className="icon-btn danger"
-                        type="button"
-                        title="Usuń"
-                        onClick={() => setPendingDelete(row)}>
-                        <Trash2 size={16} />
-                      </button>
+                      {canDeleteUser ? (
+                        <button
+                          className="icon-btn danger"
+                          type="button"
+                          title="Usuń"
+                          onClick={() => setPendingDelete(row)}>
+                          <Trash2 size={16} />
+                        </button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>
@@ -294,22 +312,27 @@ export function UsersView({onOpenLogs, onOpenCrashes}: Props): React.JSX.Element
                 className="input-field"
                 type="password"
                 required={editing === 'new'}
-                minLength={editing === 'new' ? 12 : undefined}
+                minLength={
+                  editing === 'new' || draft.password ? PASSWORD_MIN_LENGTH : undefined
+                }
                 autoComplete="new-password"
                 value={draft.password}
                 onChange={event => setDraft({...draft, password: event.target.value})}
               />
               <p className="hint" style={{marginTop: 8}}>
-                Minimum 12 znaków, bez haseł z listy zakazanych (polityka serwera).
+                Minimum {PASSWORD_MIN_LENGTH} znaków, bez haseł z listy zakazanych (polityka serwera).
               </p>
               {editing !== 'new' ? (
                 <p className="hint" style={{marginTop: 8}}>
                   Zmiana hasła lub loginu wymaga re-seal backupu E2E. Użytkownik powinien zmienić
-                  hasło w aplikacji (Ustawienia). Destrukcyjny reset poniżej czyści backup kluczy.
+                  hasło w aplikacji (Ustawienia).
+                  {canDestroyEncryption
+                    ? ' Destrukcyjny reset poniżej czyści backup kluczy.'
+                    : ''}
                 </p>
               ) : null}
             </div>
-            {editing !== 'new' ? (
+            {editing !== 'new' && canDestroyEncryption ? (
               <label
                 className="field"
                 style={{display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer'}}>
