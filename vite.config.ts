@@ -8,7 +8,8 @@ export default defineConfig({
     strictPort: true,
     host: true,
     // Keep HTTP for Caddy TLS termination; proxy helps when opening :5174 directly.
-    allowedHosts: ['vera-admin.pl', 'www.vera-admin.pl', 'localhost', '127.0.0.1'],
+    // allowedHosts: ['vera-admin.pl', 'www.vera-admin.pl', 'localhost', '127.0.0.1'],
+    allowedHosts: true,
     proxy: {
       '/__vera_api': {
         target: 'http://127.0.0.1:3000',

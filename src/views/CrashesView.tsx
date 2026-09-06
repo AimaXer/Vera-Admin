@@ -1,6 +1,7 @@
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {fetchTelemetryCrashes} from '../api/admin';
 import {errorMessage} from '../api/http';
+import {mergeByIdFront, useLiveRefresh} from '../hooks/useLiveRefresh';
 import type {CrashReportRecord} from '../types';
 
 type Props = {
@@ -18,23 +19,54 @@ export function CrashesView({initialUserId}: Props): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState(initialUserId ?? '');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const pagedRef = useRef(false);
+  const loadGen = useRef(0);
+  const explicitBusy = useRef(false);
 
   const load = useCallback(
-    async (cursor?: string, append = false) => {
-      setLoading(!append);
-      setError(null);
+    async (opts?: {cursor?: string; append?: boolean; silent?: boolean}) => {
+      const append = opts?.append ?? false;
+      const silent = opts?.silent ?? false;
+      if (silent && explicitBusy.current) {
+        return;
+      }
+      const gen = silent ? loadGen.current : ++loadGen.current;
+      if (!silent) {
+        explicitBusy.current = true;
+        setLoading(!append);
+        setError(null);
+      }
       try {
         const result = await fetchTelemetryCrashes({
           userId: userId || undefined,
-          cursor,
+          cursor: opts?.cursor,
           limit: 50,
         });
-        setCrashes(prev => (append ? [...prev, ...result.crashes] : result.crashes));
-        setNextCursor(result.nextCursor);
+        if (gen !== loadGen.current || (silent && explicitBusy.current)) {
+          return;
+        }
+        if (append) {
+          pagedRef.current = true;
+          setCrashes(prev => [...prev, ...result.crashes]);
+          setNextCursor(result.nextCursor);
+        } else if (silent && pagedRef.current) {
+          setCrashes(prev => mergeByIdFront(prev, result.crashes));
+        } else {
+          pagedRef.current = false;
+          setCrashes(result.crashes);
+          setNextCursor(result.nextCursor);
+        }
+        setError(null);
       } catch (err) {
+        if (gen !== loadGen.current || silent) {
+          return;
+        }
         setError(errorMessage(err));
       } finally {
-        setLoading(false);
+        if (!silent && gen === loadGen.current) {
+          explicitBusy.current = false;
+          setLoading(false);
+        }
       }
     },
     [userId],
@@ -45,13 +77,16 @@ export function CrashesView({initialUserId}: Props): React.JSX.Element {
   }, [initialUserId]);
 
   useEffect(() => {
+    pagedRef.current = false;
     void load();
   }, [load]);
+
+  useLiveRefresh(() => load({silent: true}));
 
   return (
     <div className="telemetry-stack">
       <div className="card telemetry-toolbar">
-        <span className="hint">Raporty crash z aplikacji mobilnej i web.</span>
+        <span className="hint">Raporty crash z aplikacji mobilnej i web. Lista odświeża się na żywo.</span>
         <div className="filter-row">
           <label htmlFor="crash-user">User ID</label>
           <input
@@ -113,7 +148,7 @@ export function CrashesView({initialUserId}: Props): React.JSX.Element {
               className="btn-secondary"
               type="button"
               disabled={loading}
-              onClick={() => void load(nextCursor, true)}>
+              onClick={() => void load({cursor: nextCursor, append: true})}>
               {loading ? 'Wczytywanie…' : 'Starsze wpisy'}
             </button>
           </div>

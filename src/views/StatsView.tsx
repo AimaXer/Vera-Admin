@@ -1,6 +1,7 @@
-import {useEffect, useMemo, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import {fetchTelemetryStats} from '../api/admin';
 import {errorMessage} from '../api/http';
+import {useLiveRefresh} from '../hooks/useLiveRefresh';
 import type {TelemetryStats} from '../types';
 
 function isoDaysAgo(days: number): string {
@@ -16,16 +17,48 @@ export function StatsView(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [rangeDays, setRangeDays] = useState(7);
+  const loadGen = useRef(0);
+  const explicitBusy = useRef(false);
 
   useEffect(() => {
+    const gen = ++loadGen.current;
+    explicitBusy.current = true;
     setLoading(true);
     setError(null);
-    const from = isoDaysAgo(rangeDays);
-    void fetchTelemetryStats(from)
-      .then(setStats)
-      .catch(err => setError(errorMessage(err)))
-      .finally(() => setLoading(false));
+    void fetchTelemetryStats(isoDaysAgo(rangeDays))
+      .then(next => {
+        if (gen !== loadGen.current) {
+          return;
+        }
+        setStats(next);
+        setError(null);
+      })
+      .catch(err => {
+        if (gen !== loadGen.current) {
+          return;
+        }
+        setError(errorMessage(err));
+      })
+      .finally(() => {
+        if (gen === loadGen.current) {
+          explicitBusy.current = false;
+          setLoading(false);
+        }
+      });
   }, [rangeDays]);
+
+  useLiveRefresh(async () => {
+    if (explicitBusy.current) {
+      return;
+    }
+    const gen = loadGen.current;
+    const next = await fetchTelemetryStats(isoDaysAgo(rangeDays));
+    if (gen !== loadGen.current || explicitBusy.current) {
+      return;
+    }
+    setStats(next);
+    setError(null);
+  });
 
   const chartRows = useMemo(() => {
     if (!stats) {
@@ -47,7 +80,7 @@ export function StatsView(): React.JSX.Element {
   return (
     <div className="telemetry-stack">
       <div className="card telemetry-toolbar">
-        <span className="hint">Agregaty z ostatnich dni (API + aplikacje).</span>
+        <span className="hint">Agregaty z ostatnich dni (API + aplikacje). Odświeżane na żywo.</span>
         <div className="filter-row">
           <label htmlFor="stats-range">Zakres</label>
           <select
@@ -63,9 +96,9 @@ export function StatsView(): React.JSX.Element {
       </div>
 
       {error ? <p className="error-text">{error}</p> : null}
-      {loading ? <p className="empty">Wczytywanie statystyk…</p> : null}
+      {loading && !stats ? <p className="empty">Wczytywanie statystyk…</p> : null}
 
-      {stats && !loading ? (
+      {stats ? (
         <>
           <div className="stat-grid">
             <div className="stat-card">

@@ -8,6 +8,7 @@ import {
   updateOrgUser,
 } from '../api/admin';
 import {errorMessage} from '../api/http';
+import {useLiveRefresh} from '../hooks/useLiveRefresh';
 import {PASSWORD_MIN_LENGTH} from '../session';
 import type {AdminUserRecord} from '../types';
 import {Modal} from '../ui/Modal';
@@ -51,13 +52,22 @@ export function UsersView({
   const [pendingDelete, setPendingDelete] = useState<AdminUserRecord | null>(null);
   const [pendingLogout, setPendingLogout] = useState<AdminUserRecord | null>(null);
 
-  async function reload(): Promise<void> {
-    setRows(await listOrgUsers());
+  async function reload(opts?: {silent?: boolean}): Promise<void> {
+    try {
+      setRows(await listOrgUsers());
+      setError(null);
+    } catch (err) {
+      if (!opts?.silent) {
+        setError(errorMessage(err));
+      }
+    }
   }
 
   useEffect(() => {
-    void reload().catch(err => setError(errorMessage(err)));
+    void reload();
   }, []);
+
+  useLiveRefresh(() => reload({silent: true}), !busy);
 
   function openNew(): void {
     setDraft(emptyDraft);
@@ -165,7 +175,7 @@ export function UsersView({
     <>
       <div className="card">
         <div className="toolbar">
-          <span className="hint">Konta komunikatora Very w organizacji.</span>
+          <span className="hint">Konta komunikatora Very w organizacji. Lista odświeża się na żywo.</span>
           <button className="btn-primary" type="button" onClick={openNew}>
             <span style={{display: 'inline-flex', alignItems: 'center', gap: 8}}>
               <Plus size={16} /> Dodaj użytkownika
@@ -198,10 +208,10 @@ export function UsersView({
                   <td>{row.username}</td>
                   <td>{row.email ?? '—'}</td>
                   <td>
-                    {row.presence === 'online' || row.online ? (
-                      <span className="badge ok">Online</span>
-                    ) : row.presence === 'dnd' ? (
+                    {row.presence === 'dnd' ? (
                       <span className="badge wait">Nie przeszkadzać</span>
+                    ) : row.presence === 'online' || row.online ? (
+                      <span className="badge ok">Online</span>
                     ) : (
                       <span className="badge muted">Offline</span>
                     )}

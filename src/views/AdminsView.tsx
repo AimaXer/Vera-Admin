@@ -9,6 +9,7 @@ import {
   updateAdmin,
 } from '../api/admin';
 import {errorMessage} from '../api/http';
+import {useLiveRefresh} from '../hooks/useLiveRefresh';
 import type {AdminPublic} from '../types';
 import {Modal} from '../ui/Modal';
 import {PASSWORD_MIN_LENGTH, type Session} from '../session';
@@ -35,13 +36,22 @@ export function AdminsView({session}: Props): React.JSX.Element {
   const [pendingDelete, setPendingDelete] = useState<AdminPublic | null>(null);
   const [emailChange, setEmailChange] = useState('');
 
-  async function reload(): Promise<void> {
-    setRows(await listAdmins());
+  async function reload(opts?: {silent?: boolean}): Promise<void> {
+    try {
+      setRows(await listAdmins());
+      setError(null);
+    } catch (err) {
+      if (!opts?.silent) {
+        setError(errorMessage(err));
+      }
+    }
   }
 
   useEffect(() => {
-    void reload().catch(err => setError(errorMessage(err)));
+    void reload();
   }, []);
+
+  useLiveRefresh(() => reload({silent: true}), !busy);
 
   function openNew(): void {
     setDraft(emptyDraft);
@@ -146,7 +156,7 @@ export function AdminsView({session}: Props): React.JSX.Element {
     <>
       <div className="card">
         <div className="toolbar">
-          <span className="hint">Konta z dostępem do tego panelu.</span>
+          <span className="hint">Konta z dostępem do tego panelu. Lista odświeża się na żywo.</span>
           <button className="btn-primary" type="button" onClick={openNew}>
             <span style={{display: 'inline-flex', alignItems: 'center', gap: 8}}>
               <Plus size={16} /> Dodaj administratora

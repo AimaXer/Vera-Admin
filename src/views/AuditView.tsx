@@ -1,6 +1,7 @@
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {fetchAdminAudit} from '../api/admin';
 import {errorMessage} from '../api/http';
+import {mergeByIdFront, useLiveRefresh} from '../hooks/useLiveRefresh';
 import type {AdminAuditEntry} from '../types';
 
 function formatTs(ts: string): string {
@@ -29,20 +30,57 @@ export function AuditView(): React.JSX.Element {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const pagedRef = useRef(false);
+  const loadGen = useRef(0);
+  const explicitBusy = useRef(false);
 
-  const load = useCallback(async (cursor?: string, append = false) => {
-    setLoading(!append);
-    setError(null);
+  const load = useCallback(async (opts?: {cursor?: string; append?: boolean; silent?: boolean}) => {
+    const append = opts?.append ?? false;
+    const silent = opts?.silent ?? false;
+    if (silent && explicitBusy.current) {
+      return;
+    }
+    const gen = silent ? loadGen.current : ++loadGen.current;
+    if (!silent) {
+      explicitBusy.current = true;
+      setLoading(!append);
+      setError(null);
+    }
     try {
-      const result = await fetchAdminAudit({cursor, limit: 50});
-      setEntries(prev => (append ? [...prev, ...result.entries] : result.entries));
-      setNextCursor(result.nextCursor);
+      const result = await fetchAdminAudit({cursor: opts?.cursor, limit: 50});
+      if (gen !== loadGen.current || (silent && explicitBusy.current)) {
+        return;
+      }
+      if (append) {
+        pagedRef.current = true;
+        setEntries(prev => [...prev, ...result.entries]);
+        setNextCursor(result.nextCursor);
+      } else if (silent && pagedRef.current) {
+        setEntries(prev => mergeByIdFront(prev, result.entries));
+      } else {
+        pagedRef.current = false;
+        setEntries(result.entries);
+        setNextCursor(result.nextCursor);
+      }
+      setError(null);
     } catch (err) {
+      if (gen !== loadGen.current || silent) {
+        return;
+      }
       setError(errorMessage(err));
     } finally {
-      setLoading(false);
+      if (!silent && gen === loadGen.current) {
+        explicitBusy.current = false;
+        setLoading(false);
+      }
     }
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useLiveRefresh(() => load({silent: true}));
 
   useEffect(() => {
     void load();
@@ -51,7 +89,7 @@ export function AuditView(): React.JSX.Element {
   return (
     <div className="card">
       <div className="toolbar">
-        <span className="hint">Dziennik działań administratorów (tylko odczyt).</span>
+        <span className="hint">Dziennik działań administratorów (tylko odczyt). Odświeżany na żywo.</span>
       </div>
       {error ? (
         <p className="error-text" style={{margin: '12px 18px 0'}}>
@@ -92,7 +130,7 @@ export function AuditView(): React.JSX.Element {
             className="btn-secondary"
             type="button"
             disabled={loading}
-            onClick={() => void load(nextCursor, true)}>
+            onClick={() => void load({cursor: nextCursor, append: true})}>
             {loading ? 'Wczytywanie…' : 'Starsze wpisy'}
           </button>
         </div>
